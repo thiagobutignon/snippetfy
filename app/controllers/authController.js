@@ -1,61 +1,54 @@
+/* eslint-disable no-param-reassign */
 const bcrypt = require('bcryptjs');
 const { User } = require('../models');
 
 module.exports = {
-  signin(req, res) {
-    return res.render('auth/signin');
-  },
+  signin: (req, { render }) => render('auth/signin'),
 
-  signup(req, res) {
-    return res.render('auth/signup');
-  },
+  signup: (req, { render }) => render('auth/signup'),
 
-  async register(req, res, next) {
+  async register({ body, flash }, { redirect }, next) {
     try {
-      const { email } = req.body;
+      const { email } = body;
       if (await User.findOne({ where: { email } })) {
-        req.flash('error', 'E-mail já cadastrado');
-        return res.redirect('back');
+        flash('error', 'E-mail já cadastrado');
+        return redirect('back');
       }
 
-      const password = await bcrypt.hash(req.body.password, 5);
-      await User.create({ ...req.body, password });
-      req.flash('success', 'Cadastro realizado com sucesso!');
-      return res.redirect('/');
+      const password = await bcrypt.hash(body.password, 5);
+      await User.create({ ...body, password });
+      flash('success', 'Cadastro realizado com sucesso!');
+      return redirect.redirect('/');
     } catch (err) {
       return next(err);
     }
   },
 
-  async authenticate(req, res, next) {
+  async authenticate({ body, flash, session }, { redirect }, next) {
     try {
-      const { email, password } = req.body;
+      const { email, password } = body;
 
       const user = await User.findOne({ where: { email } });
 
       if (!user) {
-        req.flash('error', 'Usuário não cadastrado.');
-        return res.redirect('back');
+        flash('error', 'Usuário não cadastrado.');
+        return redirect('back');
       }
 
       if (!(await bcrypt.compare(password, user.password))) {
-        req.flash('error', 'Senha incorreta');
-        return res.redirect('back');
+        flash('error', 'Senha incorreta');
+        return redirect('back');
       }
 
-      req.session.user = user;
+      session.user = user;
 
-      return req.session.save(() => {
-        res.redirect('app/dashboard');
+      session.save(() => {
+        redirect('app/dashboard');
       });
     } catch (err) {
       return next(err);
     }
   },
 
-  signout(req, res) {
-    return req.session.destroy(() => {
-      res.redirect('/');
-    });
-  },
+  signout: ({ session }, { redirect }) => session.destroy(() => redirect('/'))
 };
